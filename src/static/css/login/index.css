@@ -1,0 +1,44 @@
+$bgColor: #1890ff;
+
+@mixin body {
+	position: relative;
+	height: 100%;
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;	
+}
+@mixin header {
+	position: absolute;
+	top: 0px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 1.5rem;
+	width: 100%;
+	font-size: .37333333rem;
+	background-color: $bgColor;	
+	color: #fff;	
+}
+.log, 
+.register {
+	@include body;
+	.header {
+		@include header;
+	}
+	.link-log, 
+	.link-register {
+		float: right;
+	}
+	.item-center {
+		text-align: center;
+	}
+	.login-form-button {
+		width: 100%;
+	}
+	.login-form-button[disabled] {
+		cursor: not-allowed;
+  		opacity: 0.5;
+	}
+}
