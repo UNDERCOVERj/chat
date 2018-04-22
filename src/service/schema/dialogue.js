@@ -14,8 +14,10 @@ const dialogueSchema = mongoose.Schema({
 				arrangeFlag: Boolean, // true 为 自己，false 为 别人
 				telephone: String,
 				message: String,
+				imgUrl: String,
 				date: Date,
-				nickname: String
+				nickname: String,
+				iconUrl: String
 			}]
 		}
 	]

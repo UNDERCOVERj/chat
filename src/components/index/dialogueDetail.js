@@ -1,10 +1,12 @@
 import React from 'react'
 import ReactDom from 'react-dom'
-import {Icon, InputItem, Button} from 'antd-mobile'
+import {Icon, InputItem, Button, Toast, Popover} from 'antd-mobile'
 import { connect } from 'react-redux'
 import {getCookie, getDateStr} from '@/utils/index.js'
 import axios from '@/service/axios.js'
-import {setDialogueDetail} from '@/store/action.js'
+import {setDialogueDetail, setFriendSelectFlag} from '@/store/action.js'
+import {FriendSelect} from '../common.js'
+const Item = Popover.Item;
 let io = require('socket.io-client')
 let socket = io('http://localhost:3000')
 
@@ -31,6 +33,7 @@ class DialogueItem extends React.Component {
 		const data = this.props.data;
 		let date = new Date(data.date);
 		let dateStr = getDateStr(date);
+
 		return (
 			<div className="dialogue-item">
 				<div className="dialog-item__date">
@@ -40,11 +43,16 @@ class DialogueItem extends React.Component {
 				</div>
 				<div className={this.messageClassName()}>
 					<div className="dialogue-item__icon">
+						{
+							data.iconUrl 
+								? <img src={data.iconUrl} alt="图片加载失败" className="icon-big-img"/>
+								: null	
+						}
 					</div>
 					<div className='dialogue-item__text'>
 						<div className="dialogue-item__text-name">{data.nickname}</div>
 						<div className="dialogue-item__text-inner">
-							{data.message}
+							{data.message ? data.message : <img src={data.imgUrl} alt="图片加载失败" className="dialogue-item__img"/>}
 						</div>
 					</div>
 				</div>
@@ -58,17 +66,37 @@ class DialogueDetail extends React.Component {
 	constructor (props) {
 		super(props);
 		this.state = {
-			value: ''
+			value: '',
+			visible: false,
+			memberIds: new Set() // friend列表
 		}
 	}
 	componentWillMount () {
-		let params = {
-			acceptUserTelephone: this.props.data.telephone
+		const propsData = this.props.data;
+		if (propsData.isPersonOrGroup === 'person') { // 单聊时
+			let params = {
+				acceptUserTelephone: propsData.telephone
+			}
+			axios.post('/dialogue/detail', params)
+				.then((data) => {
+					this.props.dispatch(setDialogueDetail(data.list))
+				})
+		} else if (propsData.isPersonOrGroup === 'group') { // 群聊时
+			let params = {
+				groupId: propsData.groupId
+			}
+			axios.post('/groupDialogue/detail', params)
+				.then((data) => {
+					data.list.forEach(item => {
+						item.arrangeFlag = item.telephone === getCookie('telephone') ? true : false
+					})
+					this.props.dispatch(setDialogueDetail(data.list))
+				})
 		}
-		axios.post('/dialogue/detail', params)
-			.then((data) => {
-				this.props.dispatch(setDialogueDetail(data.list))
-			})
+	}
+	componentWillUnmount () {
+		this.props.dispatch(setDialogueDetail([]));
+		this.props.dispatch(setFriendSelectFlag(false));
 	}
 	handleLeftIconReturn = () => {
 		this.props.history.goBack();
@@ -79,22 +107,111 @@ class DialogueDetail extends React.Component {
 		})
 	}
 	sendMessage = () => {
+		const propsData = this.props.data;
 		let params = {
+			imgUrl: '',
 			message: this.state.value,
-			acceptUserTelephone: this.props.data.telephone,
+			acceptUserTelephone: propsData.telephone,
 			requestUserTelephone: getCookie('telephone')
-		}
+		};
 		if (params.message) {
-			socket.emit('emit-user-sended', params);
+			if (propsData.isPersonOrGroup === 'person') {
+				socket.emit('emit-user-sended', params);
+				this.setState({
+					value: ''
+				})
+			} else if (propsData.isPersonOrGroup === 'group') {
+				params.groupId = propsData.groupId;
+				delete params.acceptUserTelephone
+				socket.emit('emit-group-sended', params);
+				this.setState({
+					value: ''
+				})
+			}
+		}
+	}
+	uploadImg = (e) => {
+		const propsData = this.props.data;
+		console.log(propsData)
+		let input = e.target;
+		let file = input.files[0];
+		if (file.size  > 512000) {
+			Toast.fail('图片应小于500k', 1);
+		} else {
+			let reader = new FileReader();
+			reader.onload = () => {
+				let imgUrl = reader.result;
+				let params = {
+					message: "",
+					imgUrl,
+					acceptUserTelephone: propsData.telephone,
+					requestUserTelephone: getCookie('telephone')
+				}
+
+				if (propsData.isPersonOrGroup === 'person') {
+					socket.emit('emit-user-sended', params);
+				} else if (propsData.isPersonOrGroup === 'group') {
+					params.groupId = propsData.groupId;
+					delete params.acceptUserTelephone
+					socket.emit('emit-group-sended', params);			
+				}
+			}
+			reader.readAsDataURL(file)
+		}
+	}
+	showFriendSelect = () => {
+		let list = this.props.friendSelectList;
+		let memberIds = this.props.data.memberIds;
+		list = list.filter((item) => {
+			return memberIds.indexOf(item.friend.telephone) === -1
+		})
+		if (list.length) {
+			this.props.dispatch(setFriendSelectFlag(true));
+			this.props.dispatch(setFriendSelectFlag(true, list, 'SET_FRIEND_LIST'));
+		} else {
+			Toast.info('暂无其他好友可邀请', 1)
+		}
+	}
+	handleVisibleChange = (visible) => { // 控制popover的显示
+		this.setState({
+	      	visible,
+	    });
+	}
+	onSelect = (opt) => { // popover选择的value
+		let value = opt.props.value;
+		if (value === '2') {
 			this.setState({
-				value: ''
+				visible: false
+			}, this.showFriendSelect)
+		}
+	}
+	onCheckboxChange = (telephone, e) => {
+		let memberIds = this.state.memberIds;
+		if (e.target.checked) { // selected
+			memberIds.add(telephone)
+			this.setState({
+				memberIds
+			})
+		} else {
+			memberIds.delete(telephone)
+			this.setState({
+				memberIds
 			})
 		}
 	}
+	onModalSubmit = () => {
+		let data = this.props.data
+		let params = {
+			lordId: data.lordId,
+			groupId: data.groupId,
+			memberIds: [...this.state.memberIds]
+		}
+		socket.emit('groupDialogue-add',params)
+	}
 	render () {
 		const data = this.props.data;
-		console.log(this.props.list);
-		
+		data.memberIds = data.memberIds || [];
+		const personNum = data.memberIds.length;
 		return (
 			<div className="dialogue-detail">
 				<div className="content">
@@ -104,6 +221,7 @@ class DialogueDetail extends React.Component {
 							max={this.props.list.length - 1}
 							idx={idx}
 							key={idx}
+							iconUrl={data.iconUrl}
 							data={item}>
 						</DialogueItem>))}
 				</div>			
@@ -113,6 +231,37 @@ class DialogueDetail extends React.Component {
 					</div>
 					<div className="header-content">{data.nickname}</div>
 					<div className="header-right">
+						{this.props.data.isPersonOrGroup === 'group' 
+							? (<div style={{"display": "flex", "alignItems":"center"}}>
+									<span>{'(' + personNum + ')'}</span>
+									<Popover mask
+										overlayClassName="fortest"
+										overlayStyle={{ color: 'currentColor' }}
+										visible={this.state.visible}
+										overlay={[
+											(<Item key="1" value="1">查看群成员</Item>),
+											(<Item key="2" value="2">添加成员</Item>),
+										]}
+										align={{
+											overflow: { adjustY: 0, adjustX: 0 },
+											offset: [-10, 13],
+										}}
+										onVisibleChange={this.handleVisibleChange}
+										onSelect={this.onSelect}
+									>
+										<div style={{
+											height: '100%',
+											padding: '0 15px',
+											marginRight: '-15px',
+											display: 'flex',
+											alignItems: 'center',
+										}}
+										>
+											<Icon type="ellipsis" />
+										</div>
+									</Popover>								
+								</div>)
+							: null}
 					</div>
 				</div>
 				<div className="footer">
@@ -125,9 +274,15 @@ class DialogueDetail extends React.Component {
 					</div>	
 					<div className="footer-right">
 						<Button type="ghost" inline size="small" onClick={this.sendMessage}>发送</Button>
-						<Icon type="plus"></Icon>
-					</div>						
+						<Icon type="plus" onClick={() => this.inputFile.click()}></Icon>
+						<input ref={(node) => this.inputFile = node} type="file" filetype="image/*" onChange={this.uploadImg} style={{display:"none"}}/>
+					</div>
 				</div>
+				<FriendSelect 
+		      		onCheckboxChange={this.onCheckboxChange}
+		      		onModalSubmit={this.onModalSubmit}
+		      		list={this.props.friendSelectList}>
+		      	</FriendSelect>
 			</div>
 		)
 	}
@@ -135,7 +290,8 @@ class DialogueDetail extends React.Component {
 
 const mapStateToProps = (state) => ({
 	data: state.chatObjectState,
-	list: state.dialogueDetailState
+	list: state.dialogueDetailState,
+	friendSelectList: state.friendSelectState.list
 })
 
 export default connect(mapStateToProps)(DialogueDetail)

@@ -1,38 +1,85 @@
 import {isTelephoneAvailable, isPasswordAvailable} from '../../utils/index.js'
 
-
-function validateTelephone (rule, value, callback) { // 手机输入框校验
-	let val = value && value.trim();
-	if (val === '') {
-		callback(new Error('手机号不能为空'))
-	} else if (!isTelephoneAvailable(val)) { // 手机正则
-		callback(new Error('手机号格式错误'))
-	}
+function setTelephoneErrorState (hasTelephoneError = false, telephoneErrorMsg = '') {
+	this.setState({
+		hasTelephoneError,
+		telephoneErrorMsg
+	})
 }
 
-function validatePassword (rule, value, callback) { // 校验密码
-	let val = value && value.trim();
-	if(val === '') {
-		callback(new Error('密码不能为空'))
-	} else if(!isPasswordAvailable(value)) {
-		callback(new Error('密码格式错误'))
-	}
+function setPasswordErrorState (hasPasswordError = false, passwordErrorMsg = '') {
+	this.setState({
+		hasPasswordError,
+		passwordErrorMsg
+	})
 }
 
-function validateRePassword (rule, value, callback) { // 校验确认密码
-	let val = value && value.trim();
-	if (val !== this.state.password) {
-		callback(new Error('密码不一致'))
+function setRepasswordErrorState (hasRepasswordError = false, repasswordErrorMsg = '') {
+	this.setState({
+		hasRepasswordError,
+		repasswordErrorMsg
+	})
+}
+
+function setNicknameErrorState (hasNicknameError = false, nicknameErrorMsg = '') {
+	this.setState({
+		hasNicknameError,
+		nicknameErrorMsg
+	})
+}
+
+function validateTelephone (telephone) { // 手机输入框校验
+	let noSpaceTel = telephone.replace(/\s/g, '');
+	if (!isTelephoneAvailable(noSpaceTel)) {
+		setTelephoneErrorState.call(this, true, '手机号格式错误');
+	} else if (noSpaceTel.length === 0){
+		setTelephoneErrorState.call(this, true, '手机号不能为空');
+	} else if (noSpaceTel.length === 11 && isTelephoneAvailable(noSpaceTel)){
+		setTelephoneErrorState.call(this, false, '手机号格式正确');
+	}
+	this.setState({
+		telephone
+	})
+}
+
+function validatePassword (password) { // 校验密码
+	if (/\s/g.test(password)) {
+		setPasswordErrorState.call(this, true, '密码不能有空格');
+	}else if (password.length && !isPasswordAvailable(password)) {
+		setPasswordErrorState.call(this, true, '密码应为4-8位数字或密码');
+	} else if (password.length === 0) {
+		setPasswordErrorState.call(this, true, '密码不能为空');
 	} else {
-		validatePassword(null, val, callback) // 如果密码一致时，校验密码
+		setPasswordErrorState.call(this, false, '密码格式正确');
 	}
+	this.setState({
+		password
+	})
 }
 
-function validateNickname (rule, value, callback) {
-	let val = value && value.trim();
-	if (!val) {
-		callback(new Error('昵称不能为空'));
+function validateRepassword (repassword) { // 校验确认密码
+	let password = this.state.password;
+	if (password !== repassword) {
+		setRepasswordErrorState.call(this, true, '密码不一致');
+	} else {
+		setRepasswordErrorState.call(this, false, '密码一致');
 	}
+	this.setState({
+		repassword
+	})	
+}
+
+function validateNickname (nickname) {
+	if (/\s/g.test(nickname)) {
+		setNicknameErrorState.call(this, true, '昵称不能有空格');
+	}else if (!nickname) {
+		setNicknameErrorState.call(this, true, '昵称不能为空');
+	} else {
+		setNicknameErrorState.call(this, false, '昵称格式正确');
+	}
+	this.setState({
+		nickname
+	})
 }
 
 function handleTelephoneChange (e) { // 处理手机号改变
@@ -86,7 +133,7 @@ function handleNicknameChange (e) {
 module.exports = {
 	validateTelephone,
 	validatePassword,
-	validateRePassword,
+	validateRepassword,
 	validateNickname,
 	handleTelephoneChange,
 	handlePasswordChange,

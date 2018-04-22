@@ -10,7 +10,8 @@ const userSchema = mongoose.Schema({
 	iconUrl: String,
 	nickname: String,
 	signature: String,
-	region: []
+	region: [],
+	groupsIds: []
 })
 
 module.exports = mongoose.model('users', userSchema);

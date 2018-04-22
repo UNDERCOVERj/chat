@@ -65,7 +65,7 @@ $bgColor: #1890ff;
 .header {
 	order: -1;
 	height: 1.5rem;
-
+	z-index: 100;
 	display: flex;
 	position: relative;
 	align-items: center;
@@ -79,6 +79,13 @@ $bgColor: #1890ff;
 		height: 100%;
 		display: flex;
 		align-items: center;
+	}
+	.header-content {
+		width: 5rem;
+		text-align: center;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.header-right {
 		position: absolute;
@@ -102,7 +109,8 @@ $bgColor: #1890ff;
 	position: relative;
 
 	.content {
-		flex: 1 1 auto;
+		/*flex: 1 1 auto;*/
+		width: 100%;
 	}
 	.header {
 		/*flex: 0 0 1.5rem;*/
@@ -237,8 +245,13 @@ $bgColor: #1890ff;
 				.dialogue-item__icon {
 					flex: 0 0 1rem;
 					height: 1rem;
-					background-color: black;
 					margin-right: 0.26666667rem;
+					border: 1px solid $bgColor;
+					box-sizing: content-box;
+					.icon-big-img {
+						width: 1rem;
+						height: 1rem;
+					}
 				}
 				.dialogue-item__text {
 					flex: 0 0 65%;
@@ -255,6 +268,11 @@ $bgColor: #1890ff;
 						padding: 0.26666667rem;
 						border-radius: 0.05333333rem;
 						text-align: left;
+
+						.dialogue-item__img {
+							width: 3rem;
+							height: 3rem;
+						}
 					}
 				}
 			}

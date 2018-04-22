@@ -3,9 +3,9 @@ import {Toast} from 'antd-mobile'
 
 
 module.exports = {
-	post (path, params, config = {}) {
+	post (path, params = {}, config = {}, isToast = true) {
 		return new Promise((resolve, reject) => {
-			Toast.loading('请稍等...', 0);
+			isToast && Toast.loading('请稍等...', 0);
 			axios.post(path, params, config)
 				.then((res) => {
 					let data = res.data;

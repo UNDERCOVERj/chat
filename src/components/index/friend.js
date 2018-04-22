@@ -1,11 +1,10 @@
 import React from 'react'
 import store from '../../store/index.js'
 import { connect } from 'react-redux'
-import { setPage, setTopBar } from '../../store/action.js'
+import { setPage, setTopBar, setFriendSelectFlag} from '../../store/action.js'
 import {Button, List} from 'antd-mobile'
 import axios from '../../service/axios.js'
 import {DetailModal} from '../common.js'
-
 
 const Item = List.Item;
 const Brief = Item.Brief;
@@ -22,9 +21,7 @@ class Dialogue extends React.Component {
 	getList = () => {
 		axios.post('/friend/list')
 			.then((data) => {
-				this.setState({
-					list: data.list
-				})
+				this.props.dispatch(setFriendSelectFlag(false, data.list, 'SET_FRIEND_LIST'))
 			})
 	}
 	showDetail = (item) => {
@@ -47,7 +44,7 @@ class Dialogue extends React.Component {
 		return (
 			<div className="friend content">
 				<List className="friend-list">
-					{this.state.list.map((item, idx) => (
+					{this.props.list.map((item, idx) => (
 						<Item
 							key={idx}
 			        		align="top"
@@ -69,5 +66,8 @@ class Dialogue extends React.Component {
 		)
 	}
 }
+const mapStateToProps = state => ({
+    list: state.friendSelectState.list
+})
 
-export default connect()(Dialogue) // container
+export default connect(mapStateToProps)(Dialogue) // container

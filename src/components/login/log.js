@@ -1,111 +1,104 @@
 import React from 'react'
 import {
 	validateTelephone, 
-	validatePassword, 
-	handleTelephoneChange, 
-	handlePasswordChange, 
-	handleSubmit
+	validatePassword
 } from './common.js'
 import {
 	HeaderRow // 标题头
 } from '../common.js'
-import {Form, Icon, Input, Button, Checkbox} from 'antd'
+import {InputItem, List, Toast, WhiteSpace, Button} from 'antd-mobile'
 import {Link} from 'react-router-dom'
 import axios from '../../service/axios'
-import {message} from 'antd'
-const FormItem = Form.Item;
+import {createForm} from 'rc-form'
 
 class NormalLoginForm extends React.Component {
 	constructor (props) {
 		super(props);
 		this.state = {
 			telephone: '',
-			password: ''
+			password: '',
+			hasTelephoneError: true,
+			telephoneErrorMsg: '不能为空',
+			hasPasswordError: true,
+			passwordErrorMsg: '不能为空'
 		}
-		this.handleSubmit = this.handleSubmit.bind(this); // 处理提交表单
 	}
-	handleSubmit (e) {
-		function callback () {
+	handleSubmit = () => {
+		let {
+			hasTelephoneError,
+			hasPasswordError
+		} = this.state;
+		if (!hasTelephoneError && !hasPasswordError) {
 			let {
 				telephone,
 				password
 			} = this.state;
 			let params = {
-				telephone,
+				telephone: telephone.replace(/\s/g, ''),
 				password
 			}
 			axios.post('/log/in', params)
 				.then((data) => {
-					message.success('登录成功')
-					window.location.href = '/index.html#/app/person'
+					Toast.success('登录成功', 1, () => {
+						window.location.href = '/index.html#/app/person';
+					});
 				})
+		} else {
+			Toast.fail('请填写正确信息')
 		}
-		handleSubmit.call(this, e, callback);
+	}
+	onTelephoneChange = (telephone) => { // 处理telephone改变
+		validateTelephone.call(this, telephone);
+	}
+	onTelephoneErrorClick = () => {
+		if (this.state.hasTelephoneError) {
+			Toast.fail(this.state.telephoneErrorMsg, 1)
+		}
+	}
+	onPasswordChange = (password) => { // 处理telephone改变
+		validatePassword.call(this, password);
+	}
+	onPasswordErrorClick = () => {
+		if (this.state.hasPasswordError) {
+			Toast.fail(this.state.passwordErrorMsg, 1)
+		}
 	}
 	render() {
-		const { getFieldDecorator, getFieldError, isFieldTouched } = this.props.form;
-	    // Only show error after a field is touched.
-	    const telephoneError = isFieldTouched('telephone') && getFieldError('telephone');
-	    const passwordError = isFieldTouched('password') && getFieldError('password');
-
-	    const formItemLayout = {
-			labelCol: {
-				xs: { span: 24 },
-				sm: { span: 8 },
-			},
-			wrapperCol: {
-				xs: { span: 24 },
-				sm: { span: 16 },
-			}
-		}
 		return (
 			<div className="log">
 				<HeaderRow title="登录"></HeaderRow>
-				<Form onSubmit={this.handleSubmit} className="login-form">
-					<FormItem 
-						label="手机号" 
-						validateStatus={telephoneError ? 'error' : ''} 
-						help={telephoneError || ''}
-						{...formItemLayout}> 
-							{getFieldDecorator('telephone', {
-								rules: [{ required: true, validator: validateTelephone}],
-							})(
-								<Input 
-									prefix={<Icon type="phone" style={{ color: 'rgba(0,0,0,.25)' }}/>} 
-									placeholder="请输入手机号" 
-									onChange={handleTelephoneChange.bind(this)}/>
-							)}
-					</FormItem>
-					<FormItem 
-						label="密码" 
-						validateStatus={passwordError ? 'error' : ''} 
-						help={passwordError || ''} 
-						{...formItemLayout}>
-							{getFieldDecorator('password', {
-								rules: [{ required: true, validator: validatePassword}],
-							})(
-								<Input
-									prefix={<Icon type="lock" style={{ color: 'rgba(0,0,0,.25)' }} />} 
-									type="password" 
-									placeholder="请输入4~8位数字加字母"
-									onChange={handlePasswordChange.bind(this)}/>
-							)}
-					</FormItem>
-					<FormItem>
+				<div className="log-content">
+					<List>
+						<InputItem
+							type="phone"
+							placeholder="input your phone"
+							error={this.state.hasTelephoneError}
+							onErrorClick={this.onTelephoneErrorClick}
+							onChange={this.onTelephoneChange}
+							value={this.state.telephone}
+						>手机号码</InputItem>
+						<WhiteSpace></WhiteSpace>
+						<InputItem
+							type="password"
+							placeholder="****"
+							error={this.state.hasPasswordError}
+							onErrorClick={this.onPasswordErrorClick}
+							onChange={this.onPasswordChange}
+							value={this.state.password}
+						>密码</InputItem>
+					</List>
+					<div className="link-register__div">
 						<Link to="/register" className="link-register">没有账号？立即注册</Link>
-					</FormItem>
-					<FormItem className="item-center">
-						<Button type="primary" size="large" htmlType="submit" className="login-form-button">
-							登录
-						</Button>
-					</FormItem>
-				</Form>				
+					</div>
+					<Button type="primary" size="small" onClick={this.handleSubmit}>
+						登录
+					</Button>
+				</div>
 			</div>
 			
 		);
 	}
 }
 
-const WrappedNormalLoginForm = Form.create()(NormalLoginForm);
-
+const WrappedNormalLoginForm = createForm()(NormalLoginForm);
 export default WrappedNormalLoginForm

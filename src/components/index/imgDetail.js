@@ -5,17 +5,17 @@ class ImgDetail extends React.Component {
 	constructor (props) {
 		super(props);
 		this.state = {
-			isShow: "hidden"
+			isShow: "none"
 		}
 	}
 	showImgDetail = () => {
 		this.setState({
-			isShow: "visible"
+			isShow: "flex"
 		})
 	}
 	closeImgDetail = () => {
 		this.setState({
-			isShow: "hidden"
+			isShow: "none"
 		})
 	}
 	handleLeftIconReturn = () => {
@@ -23,7 +23,7 @@ class ImgDetail extends React.Component {
 	}
 	render () {
 		return (
-			<div className="img-detail" style={{"visibility": this.state.isShow}}>
+			<div className="img-detail" style={{"display": this.state.isShow}}>
 				<div className="content">
 						{
 							this.props.iconUrl 

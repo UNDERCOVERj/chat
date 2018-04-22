@@ -9,59 +9,70 @@ import {Modal, Toast} from 'antd-mobile'
 import Person from './person.js'
 import Friend from './friend.js'
 import Dialogue from './dialogue.js'
+import Group from './group.js'
 import ImgDetail from './imgDetail.js'
 import {getCookie} from '@/utils/index.js'
-import {concatDialogueDetail} from '@/store/action.js'
-const alert = Modal.alert;
+import {FriendSelect} from '../common.js'
+import {setFriendSelectFlag } from '../../store/action.js'
+import axios from '@/service/axios.js'
 let io = require('socket.io-client')
 let socket = io('http://localhost:3000')
+
+const alert = Modal.alert;
+
 
 class App extends React.Component {
 	constructor (props) {
 		super(props);
+		this.state = {
+			list: [],
+			memberIds: new Set()
+		}
 	}
-	componentDidMount () {
-		let telephone = getCookie('telephone');
-		socket.emit('join-room', {telephone});	
-		socket.on('message-listen', (data) => { // 发送消息
-			this.props.dispatch(concatDialogueDetail([data]));
-		})
-		socket.on('add-listen', (data) => { // 添加好友
-			alert('添加好友', data.nickname + '请求添加好友', [
-				{ 
-					text: '拒绝',
-				},
-				{
-					text: '接受',
-					onPress: () => {
-						new Promise((resolve) => {
-							let acceptTelephone = getCookie('telephone');
-							let requestTelephone = data.telephone;
-							Toast.success('添加成功', 1);
-							socket.emit('accept', {
-								acceptTelephone,
-								requestTelephone
-							})
-							setTimeout(resolve, 1000);
-						})				
-					}
-				}
-			])
-		})
+	componentWillMount () {
+		this.getList()
 	}
 	handleRedirect (pageUrl) {
 		if (this.props.location.pathname !== pageUrl) {
-			this.props.history.push(pageUrl)
+			this.props.history.replace(pageUrl)
 		}
 	}
 	handlePlusClick = () => {
 		this.props.history.push('/search');
 	}
+	getList = () => {
+		axios.post('/friend/list', {}, {}, false)
+			.then((data) => {
+				this.props.dispatch(setFriendSelectFlag(false, data.list, 'SET_FRIEND_LIST'))
+			})
+	}	
+	onCheckboxChange = (telephone, e) => {
+		let memberIds = this.state.memberIds;
+		if (e.target.checked) { // selected
+			memberIds.add(telephone)
+			this.setState({
+				memberIds
+			})
+		} else {
+			memberIds.delete(telephone)
+			this.setState({
+				memberIds
+			})
+		}
+	}
+	onModalSubmit = () => {
+		let requestUserTelephone = getCookie('telephone');
+		let params = {
+			memberIds: [requestUserTelephone, ...this.state.memberIds]
+		}
+		socket.emit('groupDialogue-create',params)
+	}	
 	render () {
 		return (
 			<div className="app">
 				<Route path="/app/person" component={Person}></Route>
-				<Route path="/app/friend" component={Friend}></Route>
+				<Route path="/app/group" component={Group}></Route>
+				<Route path="/app/friend" component={Friend} data={{a: 1}}></Route>
 				<Route path="/app/dialogue" component={Dialogue}></Route>
 				<HeaderRow 
 					title={this.props.text} 
@@ -71,6 +82,11 @@ class App extends React.Component {
 					onHandlePlusClick={this.handlePlusClick}>
 				</HeaderRow>
 				<FooterRow pageUrl={this.props.pageUrl} onHandleRedirect={(pageUrl) => this.handleRedirect(pageUrl)}></FooterRow>
+				<FriendSelect 
+		      		onCheckboxChange={this.onCheckboxChange}
+		      		onModalSubmit={this.onModalSubmit}
+		      		list={this.props.list}>
+		      	</FriendSelect>				
 			</div>
 		)
 	}
@@ -80,7 +96,8 @@ const mapStateToProps = state => ({
     text: state.pageState.text,
     isShowLeftIcon: state.topBarState.isShowLeftIcon,
     isShowRightSearchIcon: state.topBarState.isShowRightSearchIcon,
-    isShowRightPlusIcon: state.topBarState.isShowRightPlusIcon
+    isShowRightPlusIcon: state.topBarState.isShowRightPlusIcon,
+    list: state.friendSelectState.list
 })
 
 export default connect(mapStateToProps)(App)

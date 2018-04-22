@@ -4,15 +4,35 @@ import {
 	validateNickname,
 	handleNicknameChange
 } from './login/common.js'
-import {Button, Modal, Icon} from 'antd-mobile'
+import {Button, Modal, Icon, Popover, Checkbox, List} from 'antd-mobile'
 const prompt = Modal.prompt;
 import {getCity} from '../utils/index.js';
 import { connect } from 'react-redux'
-import { setChatObject } from '@/store/action.js'
+import { setChatObject, setFriendSelectFlag } from '@/store/action.js'
+const Item = Popover.Item;
+const CheckboxItem = Checkbox.CheckboxItem;
 
 class HeaderRow extends React.Component {
 	constructor (props) {
 		super(props);
+		this.state = {
+			visibale: true
+		}
+	}
+	handleVisibleChange = (visible) => {
+	    this.setState({
+	      	visible,
+	    });
+	}
+	onSelect = (opt) => {
+		let value = opt.props.value;
+		if (value == "1") {
+			this.setState({
+				visible: false
+			}, this.props.onHandlePlusClick)
+		} else if (value == "2") {
+			this.props.dispatch(setFriendSelectFlag(true))
+		}
 	}
 	render () {
 		let headerLeft = null;
@@ -31,8 +51,36 @@ class HeaderRow extends React.Component {
 		}
 
 		if (this.props.isShowRightPlusIcon) {
-			headerRightPlusPadding = <div style={{width:'.48rem'}} ></div>
-			headerRightPlus = <Icon type="plus" size="xs" onClick={this.props.onHandlePlusClick}></Icon>
+			// headerRightPlusPadding = <div style={{width:'.48rem'}} ></div>
+			// headerRightPlus = <Icon type="plus" size="xs" onClick={this.props.onHandlePlusClick}></Icon>
+			headerRightPlus = (
+				<Popover mask
+					overlayClassName="fortest"
+					overlayStyle={{ color: 'currentColor' }}
+					visible={this.state.visible}
+					overlay={[
+						(<Item key="1" value="1">添加好友/群</Item>),
+						(<Item key="2" value="2">创建群</Item>),
+					]}
+					align={{
+						overflow: { adjustY: 0, adjustX: 0 },
+						offset: [-10, 0],
+					}}
+					onVisibleChange={this.handleVisibleChange}
+					onSelect={this.onSelect}
+				>
+					<div style={{
+						height: '100%',
+						padding: '0 15px',
+						marginRight: '-15px',
+						display: 'flex',
+						alignItems: 'center',
+					}}
+					>
+						<Icon type="ellipsis" />
+					</div>
+				</Popover>
+			)
 		}
 
 		return (
@@ -70,6 +118,10 @@ class FooterRow extends React.Component {
 			{
 				pageUrl: '/app/dialogue',
 				text: '对话'
+			},
+			{
+				pageUrl: '/app/group',
+				text: '群组'
 			},
 			{
 				pageUrl: '/app/friend',
@@ -126,7 +178,10 @@ class DetailModal extends React.Component {
 		}
 	}
 	handleChatAction = () => {
-		this.props.dispatch(setChatObject(this.props.data));
+		let isPersonOrGroup = 'person'; // 区分单聊还是群聊，进入detail页面
+		let data = this.props.data;
+		data.isPersonOrGroup = isPersonOrGroup;
+		this.props.dispatch(setChatObject(data));
 		this.props.history.push('/detail');
 	}
 	render () {
@@ -170,9 +225,41 @@ class DetailModal extends React.Component {
 	}
 }
 
+class FriendSelect extends React.Component {
+	constructor (props) {
+		super(props)
+	}
+	render () {
+		return (
+			<Modal
+	          popup
+	          visible={this.props.friendSelectFlag}
+	          animationType="slide-up"
+	          onClose={() => this.props.dispatch(setFriendSelectFlag(false))}
+	        >
+				<List renderHeader={() => <div>选择好友</div>} className="popup-list">
+		            {this.props.list.map(i => (
+		            	<CheckboxItem key={i.friend.telephone} onChange={(e) => this.props.onCheckboxChange(i.friend.telephone, e)}>
+				            {i.friend.nickname}
+				        </CheckboxItem>
+			        ))}
+			        <List.Item>
+		                <Button type="primary" onClick={this.props.onModalSubmit}>确定</Button>
+		            </List.Item>
+	            </List>
+	        </Modal>			
+		)
+	}
+}
+
+const mapStateToProps = state => ({
+    friendSelectFlag: state.friendSelectState.friendSelectFlag
+})
+
 module.exports = {
-	HeaderRow,
+	HeaderRow: connect()(HeaderRow),
 	FooterRow,
 	DataRow,
-	DetailModal: connect()(DetailModal)
+	DetailModal: connect()(DetailModal),
+	FriendSelect: connect(mapStateToProps)(FriendSelect)
 }

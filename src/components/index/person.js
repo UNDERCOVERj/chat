@@ -7,7 +7,7 @@ import {Modal, Toast, List, Button, Radio, Picker} from 'antd-mobile'
 import axios from '../../service/axios.js'
 import {DataRow} from '../common.js'
 import {getCity} from '../../utils/index.js'
-import ImgDetail from './ImgDetail.js'
+import ImgDetail from './imgDetail.js'
 
 const region = require('../../utils/region.json');
 const prompt = Modal.prompt;

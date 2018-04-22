@@ -2,12 +2,9 @@ $bgColor: #1890ff;
 
 @mixin body {
 	position: relative;
+	padding-top: 1.5rem;
 	height: 100%;
 	width: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;	
 }
 @mixin header {
 	position: absolute;
@@ -27,18 +24,20 @@ $bgColor: #1890ff;
 	.header {
 		@include header;
 	}
-	.link-log, 
-	.link-register {
-		float: right;
-	}
-	.item-center {
-		text-align: center;
-	}
-	.login-form-button {
+	.log-content {
 		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		.link-register__div {
+			width: 100%;
+			padding: 1rem;
+			text-align: right;
+		}		
 	}
-	.login-form-button[disabled] {
-		cursor: not-allowed;
-  		opacity: 0.5;
+	.am-list {
+		width: 100%;
 	}
 }

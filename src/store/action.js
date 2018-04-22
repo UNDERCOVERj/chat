@@ -3,6 +3,8 @@ const SET_TOPBAR = 'SET_TOPBAR'
 const SET_CHAT_OBJECT = 'SET_CHAT_OBJECT'
 const SET_DIALOGUE_DETAIL = 'SET_DIALOGUE_DETAIL'
 const CONCAT_DIALOGUE_DETAIL = 'CONCAT_DIALOGUE_DETAIL'
+const SET_FRIEND_SELECT_FLAG = 'SET_FRIEND_SELECT_FLAG'
+const SET_FRIEND_LIST = 'SET_FRIEND_LIST'
 
 const setPage = (pageUrl, text) => {
 	return {
@@ -42,6 +44,14 @@ const concatDialogueDetail = (list) => {
 	}
 }
 
+const setFriendSelectFlag = (friendSelectFlag = false, list = [], type = SET_FRIEND_SELECT_FLAG) => { // 选择好友，应用于群聊创建
+	return {
+		type,
+		friendSelectFlag,
+		list
+	}
+}
+
 module.exports = {
 	SET_PAGE,
 	setPage,
@@ -52,5 +62,8 @@ module.exports = {
 	SET_DIALOGUE_DETAIL,
 	setDialogueDetail,
 	CONCAT_DIALOGUE_DETAIL,
-	concatDialogueDetail
+	concatDialogueDetail,
+	SET_FRIEND_SELECT_FLAG,
+	setFriendSelectFlag,
+	SET_FRIEND_LIST
 }

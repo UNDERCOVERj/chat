@@ -58,6 +58,8 @@ function getDateStr (date) {
 	return dateStr
 }
 
+
+
 module.exports = {
 	isTelephoneAvailable,
 	isPasswordAvailable,
