@@ -48,11 +48,11 @@ class Dialogue extends React.Component {
 						<Item
 							key={idx}
 			        		align="top"
-							thumb={item.friend.iconUrl || "https://zos.alipayobjects.com/rmsportal/dNuvNrtqUztHCwM.png"}
+							thumb={item.iconUrl || "https://zos.alipayobjects.com/rmsportal/dNuvNrtqUztHCwM.png"}
 							multipleLine
-							onClick={() => this.showDetail(item.friend)}
+							onClick={() => this.showDetail(item)}
 				        >
-				        	{item.friend.nickname}
+				        	{item.nickname}
 	        			</Item> 						
 					))}
 		      	</List>

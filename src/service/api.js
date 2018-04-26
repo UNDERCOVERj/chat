@@ -4,6 +4,9 @@ const formidable = require("formidable");
 
 const crypto = require('crypto');
 
+const FRIEND_ROOM_ID = 'friendRoomId';
+const GROUP_ID = 'groupId';
+
 function createHash (id) { // 根据telephone产生一个hash
 	const secret = 'chat';
 	return crypto.createHmac('sha256', secret)
@@ -28,8 +31,7 @@ function getGroupId () {
 const mongoose = require('mongoose');
 
 let Users = require('./schema/user.js');
-let Dialogues = require('./schema/dialogue.js');
-let Friends = require('./schema/friend.js');
+let FriendDialogues = require('./schema/friendDialogue.js');
 let GroupDialogues = require('./schema/groupDialogue.js');
 
 const successSchema = {
@@ -90,12 +92,14 @@ async function update (ctx, key, value) {
 	})	
 }
 
-async function getFriendList (ctx, next) {
+async function getFriendInfo (ctx, memberIds) { // 从memberIds中找出不是本人的id，然后查询这个id
 	const telephone = ctx.cookies.get('telephone');
-	let list = await Friends.findOne({
-		telephone
-	}).populate('')
-	return list || {}
+	let friendArr = memberIds.filter((id) => id !== telephone);
+	friendId = friendArr[0];
+	let friendInfo = await Users.findOne({
+		telephone: friendId
+	}).exec();
+	return friendInfo || {}
 }
 
 module.exports = (app, router) => {
@@ -126,25 +130,12 @@ module.exports = (app, router) => {
 			data = clone(errorSchema);		
 			data.msg = '手机号已被注册';
 		} else {
-			content._id = new mongoose.Types.ObjectId(); // poputate
 			let item = new Users(content)
-			let result = await item.save()
-
-			let friendSelf = new Friends({ // poputate 创建好友列表
-				telephone: content.telephone, // poputate
-				self: item._id // poputate
-			}) // poputate
-			await friendSelf.save(); // poputate
-
-			let dialogues = new Dialogues({ // 创建dialogue
-				requestUserTelephone: content.telephone
-			})
-			await dialogues.save();
-
+			let result = await item.save() // 创建一个用户
 			data = clone(successSchema);
 			data.msg = '注册成功';
-			ctx.cookies.set('SESSION_ID', createHash(content.telephone));
-			ctx.cookies.set('telephone', content.telephone, {httpOnly: false});
+			ctx.cookies.set('SESSION_ID', createHash(content.telephone)); // 设置cookie
+			ctx.cookies.set('telephone', content.telephone, {httpOnly: false}); // 设置cookie方便登录拦截
 		}
 		ctx.state.data = data;
 		await next();
@@ -183,7 +174,6 @@ module.exports = (app, router) => {
 		ctx.cookies.set('SESSION_ID', '', {
 			maxAge: 0
 		})
-		// ctx.state.data = clone(successSchema)
 		await next();
 	})
 	router.post('/person', async (ctx, next) => {
@@ -220,7 +210,6 @@ module.exports = (app, router) => {
 				update(ctx, key, content[key])
 			})
 		}
-		// ctx.state.data = clone(successSchema)
 		await next();
 	})
 	router.post('/person/search', async (ctx, next) => { // 暂时只支持手机查询
@@ -228,6 +217,7 @@ module.exports = (app, router) => {
 		const content = ctx.request.body;
 		const telephone = content.telephone;
 		let person = await getPerson(ctx, next, telephone);
+
 		if (person) {
 			data = clone(successSchema)
 			data.data = person;
@@ -242,19 +232,47 @@ module.exports = (app, router) => {
 	router.post('/friend/list', async (ctx, next) => {
 		let data = clone(successSchema);
 		const telephone = ctx.cookies.get('telephone');
-		let friend = await Friends.findOne({
+		let user = await Users.findOne({
 			telephone
-		}).populate('list.friend').exec();
+		}).exec();
+		user = user || {};
+		let friendRoomIds = user.friendRoomIds || [];
+		let friendIds = friendRoomIds.map(obj => obj.friendId);
+		let friendRoomIdArr = friendRoomIds.map(obj => obj.friendRoomId);
 
-		let list = friend.list;
+		data.data.list = await Promise.all(friendRoomIds.map(async (friendId, idx) => {
 
-		if (list) {
-			data.data.list = list;
-			data.msg = '返回好友列表成功';
-		} else {
-			data.data.list = [];
-			data.msg = '好友列表为空';
-		}
+			let friendInfo = await Users.findOne({ // 找到好友信息
+				telephone: friendIds[idx]
+			}).exec();
+
+			let {
+				nickname,
+				telephone,
+				region,
+				signature,
+				sex,
+				iconUrl
+			} = friendInfo;
+
+			let friendRoomInfo = await FriendDialogues.findOne({ // 找到好友聊天信息
+				friendRoomId: friendRoomIdArr[idx] // 房间号
+			}).exec();
+
+			if (friendInfo && friendRoomInfo) {
+				return {
+					nickname,
+					friendRoomId: friendRoomInfo.friendRoomId,
+					type: friendRoomInfo.type,
+					iconUrl,
+					telephone,
+					region
+				}
+			}
+
+			return {};
+		}))
+
 		ctx.state.data = data;
 		
 		await next();
@@ -264,32 +282,24 @@ module.exports = (app, router) => {
 		const requestUserTelephone = ctx.cookies.get('telephone');
 		const content = ctx.request.body;
 
-		let dialogue = await Dialogues.findOne({
-			"requestUserTelephone": requestUserTelephone,
-			"list": {
-				$elemMatch: {
-					"acceptUserTelephone": content.acceptUserTelephone
-				}
-			}
+		let friendDialogue = await FriendDialogues.findOne({
+			friendRoomId: content.friendRoomId
 		}).exec();
 
-		let list = dialogue.list || [];
-		for (let i = 0; i < list.length; i++) {
-			let item = list[i];
-			if (item.acceptUserTelephone === content.acceptUserTelephone) {
-
-				data.data.list = await Promise.all(item.details.map(async (element) => {
-					let person = await Users.findOne({
-						telephone: element.telephone
-					}).exec();
-					if (person) {
-						element.iconUrl = person.iconUrl;
-						element.nickname = person.nickname;
-					}
-					return element;
-				}))
+		let list = friendDialogue || {};
+		let dataList = [];
+		dataList = await Promise.all(list.details.map(async (element) => {
+			let person = await Users.findOne({
+				telephone: element.telephone
+			}).exec();
+			if (person) {
+				element.iconUrl = person.iconUrl;
+				element.nickname = person.nickname;
+				return element;
 			}
-		}
+			return {}
+		}))
+		data.data.list = dataList;
 		ctx.state.data = data;
 		await next()
 	})
@@ -300,69 +310,76 @@ module.exports = (app, router) => {
 
 		const requestUserTelephone = ctx.cookies.get('telephone');
 
-		let dialogues = await Dialogues.findOne({
-			"requestUserTelephone": requestUserTelephone
+		let friendDialogues = await FriendDialogues.find({
+			"memberIds": requestUserTelephone
 		}).exec()
 
-		let list = dialogues.list || [];
+		friendDialogues = friendDialogues || [];
 
-		let groupDialogues = await GroupDialogues.findOne({
+		let groupDialogues = await GroupDialogues.find({
 			"memberIds": requestUserTelephone
 		})
 
 		groupDialogues = groupDialogues || [];
 
-		list = list.concat(groupDialogues);
-
+		list = friendDialogues.concat(groupDialogues);
+		
 		for (let i = 0; i < list.length; i++) {
 			let item = list[i];
 			let details = item.details;
-
 			if (details.length) {
+				let {
+					type,
+					memberIds,
+					groupId,
+					friendRoomId,
+					lordId
+				} = item;
 
-				let user = await Users.findOne({
-					telephone: item.acceptUserTelephone || requestUserTelephone // 个人或者群聊
-				}).select({
-					nickname: 1,
-					telephone: 1,
-					iconUrl: 1
-				}).exec();
+				let params = {
+					memberIds,
+					lordId,
+					type
+				};
 
-				let lastDetail = details[details.length - 1] || {};
-				let lastListDetailDate = dataList[dataList.length - 1] 
-										&& dataList[dataList.length - 1].date;
-				let nicknameArr = [];
-
-				if (item.memberIds) { // 如果是群聊，找出所有nickname并返回
-					nicknameArr = await Promise.all(item.memberIds.map(async (id) => {
+				if (type === GROUP_ID) {
+					let user = await Users.findOne({
+						telephone: requestUserTelephone
+					}).select({
+						nickname: 1,
+						telephone: 1,
+						iconUrl: 1
+					}).exec();
+					let nicknameArr = [];
+					nicknameArr = await Promise.all(memberIds.map(async (id) => {
 						let person = await Users.findOne({
 							telephone: id
 						}).exec();
 						return person.nickname
 					}))
+					params.nickname = '群聊: ' + nicknameArr.join(',');
+					params.telephone = user && user.telephone;
+					params.groupId = groupId;
+					params.iconUrl = user.iconUrl; // 换成本人的icon
+				} else if (item.type === FRIEND_ROOM_ID) {
+					let friendInfo = await getFriendInfo(ctx, item.memberIds);
+					params.friendRoomId = friendRoomId;
+					params.nickname = friendInfo.nickname;
+					params.iconUrl = friendInfo.iconUrl;
 				}
 
-				let data = {
-					date: lastDetail.date,
-					message: lastDetail.message,
-					nickname: item.groupId ? '群聊: ' + nicknameArr.join(',') : user.nickname,
-					telephone: user.telephone,
-					memberIds: item.memberIds || [],
-					lordId: item.lordId || '',
-					iconUrl: user.iconUrl,
-					groupId: item.groupId
-				};
+				let lastDetail = details[details.length - 1] || {};
 
-				if (lastListDetailDate && (new Date(lastListDetailDate).getTime() < new Date(lastDetail.date).getTime())) { // 用此方法排序
-					dataList.unshift(data);
-				} else {
-					dataList.push(data);
-				}
-				data.msg = "返回数据成功"
-			} else {
-				data.msg = "数据为空"
+				params.date = lastDetail.date; // 附加信息
+				params.message = lastDetail.message;
+
+				dataList.push(params);
 			}
 		}
+		data.data.list = data.data.list.sort((a, b) => {
+			return new Date(a.date).getTime() < new Date(b.date).getTime() // 排序
+		})
+		data.msg = dataList.length ? "返回数据成功" : "数据为空";
 
 		ctx.state.data = data;
 
@@ -372,8 +389,9 @@ module.exports = (app, router) => {
 	router.post('/group/list', async (ctx, next) => {
 		let data = clone(successSchema);
 		let person = await getPerson(ctx, next);
-
-		data.data.groups = await Promise.all(person.groupsIds.map(async (groupId) => {
+		person = person || {};
+		let groupsIds = person.groupsIds || [];
+		data.data.groups = await Promise.all(groupsIds.map(async (groupId) => {
 			let group = await GroupDialogues.findOne({
 				groupId
 			}).exec();
@@ -393,7 +411,8 @@ module.exports = (app, router) => {
 				return {
 					nickname: '群聊: ' + nicknameArr.join(','),
 					groupId,
-					memberIds: group.memberIds
+					memberIds: group.memberIds,
+					type: group.type
 				};
 			}
 		}))

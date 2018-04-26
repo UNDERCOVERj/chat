@@ -36,7 +36,7 @@ class HeaderRow extends React.Component {
 	}
 	render () {
 		let headerLeft = null;
-		let headerRightSearch = null;
+		// let headerRightSearch = null;
 		let headerRightPlusPadding = null;
 		let headerRightPlus = null;
 		if (this.props.isShowLeftIcon) {
@@ -46,9 +46,9 @@ class HeaderRow extends React.Component {
 				</div>
 			)
 		}
-		if (this.props.isShowRightSearchIcon) {
-			headerRightSearch = <Icon type="search"></Icon>
-		}
+		// if (this.props.isShowRightSearchIcon) {
+		// 	headerRightSearch = <Icon type="search"></Icon>
+		// }
 
 		if (this.props.isShowRightPlusIcon) {
 			// headerRightPlusPadding = <div style={{width:'.48rem'}} ></div>
@@ -88,7 +88,6 @@ class HeaderRow extends React.Component {
 					{headerLeft}
 					<div className="header-content">{this.props.title}</div>
 					<div className="header-right">
-						{headerRightSearch}
 						{headerRightPlusPadding}
 						{headerRightPlus}
 					</div>
@@ -178,9 +177,7 @@ class DetailModal extends React.Component {
 		}
 	}
 	handleChatAction = () => {
-		let isPersonOrGroup = 'person'; // 区分单聊还是群聊，进入detail页面
 		let data = this.props.data;
-		data.isPersonOrGroup = isPersonOrGroup;
 		this.props.dispatch(setChatObject(data));
 		this.props.history.push('/detail');
 	}
@@ -239,8 +236,8 @@ class FriendSelect extends React.Component {
 	        >
 				<List renderHeader={() => <div>选择好友</div>} className="popup-list">
 		            {this.props.list.map(i => (
-		            	<CheckboxItem key={i.friend.telephone} onChange={(e) => this.props.onCheckboxChange(i.friend.telephone, e)}>
-				            {i.friend.nickname}
+		            	<CheckboxItem key={i.friendRoomId} onChange={(e) => this.props.onCheckboxChange(i.telephone, e)}>
+				            {i.nickname}
 				        </CheckboxItem>
 			        ))}
 			        <List.Item>
@@ -261,5 +258,7 @@ module.exports = {
 	FooterRow,
 	DataRow,
 	DetailModal: connect()(DetailModal),
-	FriendSelect: connect(mapStateToProps)(FriendSelect)
+	FriendSelect: connect(mapStateToProps)(FriendSelect),
+	FRIEND_ROOM_ID: 'friendRoomId',
+	GROUP_ID: 'groupId'
 }

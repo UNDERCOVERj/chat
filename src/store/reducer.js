@@ -15,13 +15,17 @@ const initialTopBarState = {
 }
 
 const initialChatObjectState = {
+	date: new Date(),
+	iconUrl: '',
+	lordId: '',
+	memberIds: [],
+	message: '',
 	nickname: '',
 	telephone: '',
-	signature: '',
-	sex: 1,
-	region: [],
-	regionStr: '',
-	isPersonOrGroup: 'person'
+	type: 'groupId',
+	friendRoomId: '',
+	groupId: '',
+	arrangeFlag: false
 }
 
 const initialFriendSelectState = {

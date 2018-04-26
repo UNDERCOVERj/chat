@@ -1,11 +1,10 @@
 const mongoose = require('mongoose');
 mongoose.connect('mongodb://localhost/chat'); // 连接blog数据库
-const groupDialogueSchema = mongoose.Schema({
-	groupId: String,
-	groupName: String,
+const friendDialogueSchema = mongoose.Schema({
+	friendRoomId: String,
 	memberIds: [],
-	lordId: String, // 群主
-	type: String,
+	lordId: String, // 主动添加的人
+	type: String, // friendRoomId 和 groupId
 	details: [{
 		// arrangeFlag: Boolean, // true 为 自己，false 为 别人
 		telephone: String,
@@ -16,4 +15,4 @@ const groupDialogueSchema = mongoose.Schema({
 		iconUrl: String
 	}]
 })
-module.exports = mongoose.model('groupDialogue', groupDialogueSchema);
+module.exports = mongoose.model('friendDialogue', friendDialogueSchema);

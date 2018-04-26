@@ -5,7 +5,7 @@ import { connect } from 'react-redux'
 import {getCookie, getDateStr} from '@/utils/index.js'
 import axios from '@/service/axios.js'
 import {setDialogueDetail, setFriendSelectFlag} from '@/store/action.js'
-import {FriendSelect} from '../common.js'
+import {FriendSelect, FRIEND_ROOM_ID, GROUP_ID} from '../common.js'
 const Item = Popover.Item;
 let io = require('socket.io-client')
 let socket = io('http://localhost:3000')
@@ -73,26 +73,27 @@ class DialogueDetail extends React.Component {
 	}
 	componentWillMount () {
 		const propsData = this.props.data;
-		if (propsData.isPersonOrGroup === 'person') { // 单聊时
-			let params = {
-				acceptUserTelephone: propsData.telephone
+		let params = {};
+		let url = '';
+		if (propsData.type === FRIEND_ROOM_ID) { // 单聊时
+			params = {
+				friendRoomId: propsData.friendRoomId
 			}
-			axios.post('/dialogue/detail', params)
-				.then((data) => {
-					this.props.dispatch(setDialogueDetail(data.list))
-				})
-		} else if (propsData.isPersonOrGroup === 'group') { // 群聊时
-			let params = {
+			url = '/dialogue/detail';
+			
+		} else if (propsData.type === GROUP_ID) { // 群聊时
+		    params = {
 				groupId: propsData.groupId
 			}
-			axios.post('/groupDialogue/detail', params)
+			url = '/groupDialogue/detail';
+		}
+		axios.post(url, params)
 				.then((data) => {
-					data.list.forEach(item => {
+					data.list.forEach((item) => {
 						item.arrangeFlag = item.telephone === getCookie('telephone') ? true : false
 					})
 					this.props.dispatch(setDialogueDetail(data.list))
-				})
-		}
+				})		
 	}
 	componentWillUnmount () {
 		this.props.dispatch(setDialogueDetail([]));
@@ -111,18 +112,18 @@ class DialogueDetail extends React.Component {
 		let params = {
 			imgUrl: '',
 			message: this.state.value,
-			acceptUserTelephone: propsData.telephone,
 			requestUserTelephone: getCookie('telephone')
 		};
+
 		if (params.message) {
-			if (propsData.isPersonOrGroup === 'person') {
+			if (propsData.type === FRIEND_ROOM_ID) {
+				params.friendRoomId = propsData.friendRoomId;
 				socket.emit('emit-user-sended', params);
 				this.setState({
 					value: ''
 				})
-			} else if (propsData.isPersonOrGroup === 'group') {
+			} else if (propsData.type === GROUP_ID) {
 				params.groupId = propsData.groupId;
-				delete params.acceptUserTelephone
 				socket.emit('emit-group-sended', params);
 				this.setState({
 					value: ''
@@ -132,7 +133,6 @@ class DialogueDetail extends React.Component {
 	}
 	uploadImg = (e) => {
 		const propsData = this.props.data;
-		console.log(propsData)
 		let input = e.target;
 		let file = input.files[0];
 		if (file.size  > 512000) {
@@ -144,15 +144,14 @@ class DialogueDetail extends React.Component {
 				let params = {
 					message: "",
 					imgUrl,
-					acceptUserTelephone: propsData.telephone,
 					requestUserTelephone: getCookie('telephone')
 				}
 
-				if (propsData.isPersonOrGroup === 'person') {
+				if (propsData.type === FRIEND_ROOM_ID) {
+					params.friendRoomId = propsData.friendRoomId;
 					socket.emit('emit-user-sended', params);
-				} else if (propsData.isPersonOrGroup === 'group') {
+				} else if (propsData.type === GROUP_ID) {
 					params.groupId = propsData.groupId;
-					delete params.acceptUserTelephone
 					socket.emit('emit-group-sended', params);			
 				}
 			}
@@ -163,7 +162,7 @@ class DialogueDetail extends React.Component {
 		let list = this.props.friendSelectList;
 		let memberIds = this.props.data.memberIds;
 		list = list.filter((item) => {
-			return memberIds.indexOf(item.friend.telephone) === -1
+			return memberIds.indexOf(item.telephone) === -1
 		})
 		if (list.length) {
 			this.props.dispatch(setFriendSelectFlag(true));
@@ -231,7 +230,7 @@ class DialogueDetail extends React.Component {
 					</div>
 					<div className="header-content">{data.nickname}</div>
 					<div className="header-right">
-						{this.props.data.isPersonOrGroup === 'group' 
+						{this.props.data.type === GROUP_ID 
 							? (<div style={{"display": "flex", "alignItems":"center"}}>
 									<span>{'(' + personNum + ')'}</span>
 									<Popover mask

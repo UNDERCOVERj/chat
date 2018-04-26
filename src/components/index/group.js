@@ -27,15 +27,7 @@ class Group extends React.Component {
 			})
 	}
 	clickGroup (item) {
-		let groupId = item.groupId
-		let isPersonOrGroup = 'group'; // 区分单聊还是群聊，进入detail页面
-		let data = {};
-		data.isPersonOrGroup = isPersonOrGroup;
-		data.groupId = groupId;
-		data.nickname = item.nickname;
-		data.memberIds = item.memberIds;
-		data.lordId = item.lordId;
-		this.props.dispatch(setChatObject(data));
+		this.props.dispatch(setChatObject(item));
 		this.props.history.push('/detail');
 	}
 	render () {

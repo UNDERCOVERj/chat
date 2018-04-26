@@ -6,6 +6,7 @@ import {List, Badge} from 'antd-mobile'
 import axios from '@/service/axios.js'
 import {getDateStr} from '@/utils/index.js'
 import { setChatObject } from '@/store/action.js'
+import {FRIEND_ROOM_ID, GROUP_ID} from '../common.js'
 const Item = List.Item;
 const Brief = Item.Brief;
 
@@ -27,24 +28,7 @@ class Dialogue extends React.Component {
 			})
 	}
 	showDetail (item) {
-		let {
-			groupId,
-			telephone,
-			memberIds,
-			lordId
-		} = item;
-		let data = {};
-		if (groupId) { // 区分单聊还是群聊，进入detail页面
-			data.isPersonOrGroup = 'group';
-			data.groupId = groupId;
-			data.memberIds = memberIds;
-			data.lordId = lordId
-		} else {
-			data.isPersonOrGroup = 'person';
-			data.telephone = telephone;
-		}
-		data.nickname = item.nickname;
-		this.props.dispatch(setChatObject(data));
+		this.props.dispatch(setChatObject(item));
 		this.props.history.push('/detail');		
 	}
 	render () {
@@ -60,7 +44,6 @@ class Dialogue extends React.Component {
 							multipleLine
 							onClick={() => this.showDetail(item)}
 				        >
-				        {/*<Badge text={77} overflowCount={55} />*/}
 				        	{item.nickname}<Brief>{item.message ? item.message : '[图片]'}</Brief>
 	        			</Item> 						
 					))}

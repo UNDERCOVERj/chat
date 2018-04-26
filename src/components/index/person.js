@@ -38,7 +38,7 @@ class Person extends React.Component {
 	init = (showSuccess) => {
 		this.props.dispatch(setTopBar(false, false, false))
 		this.props.dispatch(setPage('/app/person', '个人中心')) // text为title
-		axios.post('/person')
+		axios.post('/person#hash')
 			.then((data) => {
 				if (showSuccess) {
 					Toast.success('更新成功', 1)

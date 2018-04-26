@@ -1,23 +1,14 @@
 const mongoose = require('mongoose');
 
 let Users = require('./schema/user.js');
-let Dialogues = require('./schema/dialogue.js');
-let Friends = require('./schema/friend.js');
+let FriendDialogues = require('./schema/friendDialogue.js');
 let GroupDialogues = require('./schema/groupDialogue.js');
 
-async function addMessage (user, messageObj, telephone) {
-	let list = user.list
-	for (let i = 0; i < list.length; i++) {
-		let item = list[i];
-		if (item.acceptUserTelephone === telephone) {
-			item.details.push(messageObj);
-			await user.save();
-		}
-	}
-}
-function getGroupId () {
-	let num = '' + Math.floor(Math.random()*10000);
-	let max = 4;
+const FRIEND_ROOM_ID = 'friendRoomId';
+const GROUP_ID = 'groupId';
+
+function getRandomId (max) {
+	let num = '' + Math.floor(Math.random()*Math.pow(10, max));
 	let len = num.length;
 	let remain = max - len;
 	if (remain) {
@@ -28,157 +19,150 @@ function getGroupId () {
 	return num
 }
 
+async function getFriendId (requestUserTelephone = '', friendRoomId = '') {
+	let friendDialogue = await FriendDialogues.findOne({
+		friendRoomId
+	}).exec();
+
+	let memberIds = friendDialogue.memberIds;
+	for (let i = 0; i < memberIds.length; i++) {
+		if (memberIds[i] !== requestUserTelephone) {
+			return memberIds[i]
+		}
+	}
+
+	return requestUserTelephone
+}
+
 module.exports = (io) => {
 
 	io.set('heartbeat interval', 60000);
 	io.set('heartbeat timeout', 5000);
 
 	io.on('connection', (socket) => {
-		socket.on('join-room', (data) => {
-			socket.join('user-' + data.telephone)
+		socket.on('join-room', async (data) => {
+			socket.join('user-' + data.telephone);
 		})
 		socket.on('emit-user', async (data) => { // 添加好友
 			let {
 				reqUserTelephone,
 				resUserTelephone
 			} = data;
+
+			let user = await Users.findOne({
+				telephone: reqUserTelephone
+			}).exec();
+
+			let friendIds = user.friendRoomIds.map((item) => {
+				return item.friendId;
+			})
+
+			if (reqUserTelephone === resUserTelephone) { // 添加好友是自己{
+				socket.to('user-' + reqUserTelephone).emit('add-send', {
+					msg: '请勿添加自己'
+				})				
+			} else if (friendIds.indexOf(resUserTelephone) === -1) {
+
+				let friendRoomId = getRandomId(5);
+
+				socket.to('user-' + resUserTelephone).emit('add-listen', {
+					nickname: user && user.nickname,
+					friendRoomId,
+					telephone: reqUserTelephone // 请求添加的人
+				})
+				socket.to('user-' + reqUserTelephone).emit('add-send', {
+					msg: '已发送请求'
+				})
+			} else {
+				socket.to('user-' + reqUserTelephone).emit('add-send', {
+					msg: '该联系人已是你的好友'
+				})
+			}
+		})
+		socket.on('accept', async (data) => { // 添加后保证添加人和被添加人都进入room
+
+			let reqUserTelephone = data.requestTelephone;
+			let resUserTelephone = data.acceptTelephone;
+			let friendRoomId = data.friendRoomId;
+
+
 			let requestUser = await Users.findOne({
 				"telephone": reqUserTelephone
 			}).exec();
-			let acceptUser = await Friends.findOne({
-				"telephone": resUserTelephone
-			}).populate('self').exec();
 
-			socket.to('user-' + data.resUserTelephone).emit('add-listen', requestUser)
-		})
-		socket.on('accept', async (data) => {
-
-			let {
-				acceptTelephone,
-				requestTelephone
-			} = data;
-
-			let requestUser = await Friends.findOne({
-				"telephone": requestTelephone
-			}).exec();
-
-			let requestFriendUser = await Users.findOne({
-				"telephone": requestTelephone
+			requestUser.friendRoomIds.push({
+				friendRoomId,
+				friendId: resUserTelephone
 			})
 
-			let requestDialogueUser = await Dialogues.findOne({
-				"requestUserTelephone": requestTelephone
-			})
-
-			let acceptUser = await Friends.findOne({
-				"telephone": acceptTelephone
-			}).exec();
-
-			let acceptFriendUser = await Users.findOne({
-				"telephone": acceptTelephone
-			})
-
-			let acceptDialogueUser = await Dialogues.findOne({
-				"requestUserTelephone": acceptTelephone
-			})
-
-			requestUser.list.push({friend: acceptFriendUser._id});
 			await requestUser.save();
 
-			acceptUser.list.push({friend: requestFriendUser._id});
+			let acceptUser = await Users.findOne({
+				"telephone": resUserTelephone
+			}).exec();
+
+			acceptUser.friendRoomIds.push({
+				friendRoomId,
+				friendId: reqUserTelephone
+			})
+
 			await acceptUser.save();
 
-			requestDialogueUser.list.push({
-				acceptUserTelephone: acceptTelephone,
-				groups: [
-					{
-						userTelephone: requestTelephone
-					},
-					{
-						userTelephone: acceptTelephone
-					}
-				],
-				details: []					
+			let friendRoom = new FriendDialogues({
+				friendRoomId,
+				memberIds: [reqUserTelephone, resUserTelephone],
+				lordId: reqUserTelephone,
+				type: FRIEND_ROOM_ID
 			})
 
-			await requestDialogueUser.save();
-
-			acceptDialogueUser.list.push({
-				acceptUserTelephone: requestTelephone,
-				groups: [
-					{
-						userTelephone: acceptTelephone
-					},
-					{
-						userTelephone: requestTelephone
-					}
-				],
-				details: []					
-			})
-
-			await acceptDialogueUser.save();
+			await friendRoom.save();
 
 		})
 		socket.on('emit-user-sended', async (data) => {
 			let {
 				requestUserTelephone,
-				acceptUserTelephone,
 				message,
-				imgUrl
+				imgUrl,
+				friendRoomId
 			} = data;
-			let requestParams = {
-				"requestUserTelephone": acceptUserTelephone,
-				"list": {$elemMatch: {
-					"acceptUserTelephone": requestUserTelephone
-				}}
-			};
-			let acceptParams = {
-				"requestUserTelephone": requestUserTelephone,
-				"list": {
-					$elemMatch: {
-						"acceptUserTelephone": acceptUserTelephone
-					}
-				}
-			};
 
-			let requestDialogueUser = await Dialogues
-											.findOne(acceptParams)
-											.select('list')
-											.exec();
+			let requestPerson = await Users.findOne({
+				telephone: requestUserTelephone
+			}).exec();
 
-			let acceptDialogueUser = await Dialogues
-											.findOne(requestParams)
-											.select('list')
-											.exec();
-			
-			let requestPerson = await Users.findOne({telephone: requestUserTelephone}).exec()
 			requestPerson = requestPerson || {};
 
-			let basicParams = {
+			let params = {
 				telephone: requestUserTelephone,
 				message,
 				imgUrl,
 				date: Date.now(),
 				nickname: requestPerson.nickname,
-				iconUrl: requestPerson.iconUrl
+				iconUrl: requestPerson.iconUrl,
+				type: FRIEND_ROOM_ID
 			}
-			let requestMessageParams = Object.assign({}, basicParams, {arrangeFlag: true}) // true 为 自己，false 为 别人
 
-			let acceptMessageParams = Object.assign({}, basicParams, {arrangeFlag: false}) // true 为 自己，false 为 别人
+			let friendDialogue = await FriendDialogues.findOne({
+				friendRoomId
+			}).exec();
 
-			addMessage(requestDialogueUser, requestMessageParams, acceptUserTelephone);
-			addMessage(acceptDialogueUser, acceptMessageParams, requestUserTelephone);
+			if (friendDialogue) {
+				friendDialogue.details.push(params);
+				await friendDialogue.save();
 
-			socket.to('user-' + requestUserTelephone).emit('message-listen', requestMessageParams);
-			socket.to('user-' + acceptUserTelephone).emit('message-listen', acceptMessageParams);
+				friendDialogue.memberIds.forEach((id) => {
+					socket.to('user-' + id).emit('message-listen', params); // 会让每个detail页面显示,可以再react中让页面不显示
+				})
+			}
 		})
 
 		socket.on('groupDialogue-create', async (data) => {
 			const memberIds = [...data.memberIds]
-			const groupId = getGroupId();
+			const groupId = getRandomId(4);
 			let item = {
 				groupId,
 				memberIds,
+				type: GROUP_ID,
 				lordId: memberIds[0], // 群主			
 			}
 
@@ -253,7 +237,8 @@ module.exports = (io) => {
 				imgUrl,
 				date: Date.now(),
 				nickname: requestPerson.nickname,
-				iconUrl: requestPerson.iconUrl
+				iconUrl: requestPerson.iconUrl,
+				type: GROUP_ID
 			}
 			let groupDialogue = await GroupDialogues.findOne({
 				groupId: data.groupId

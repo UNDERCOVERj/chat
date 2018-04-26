@@ -16,32 +16,41 @@ const alert = Modal.alert;
 let socket = store.getState().generalSocket.socket;
 let telephone = getCookie('telephone');
 
+let friendId = ''; // 保证只触发一次
+
 socket.emit('join-room', {telephone});
 socket.on('message-listen', (data) => { // 发送消息
 	data.arrangeFlag = data.telephone === telephone ? true : false;
-	store.dispatch(concatDialogueDetail([data]));
+	let chatObjectState = store.getState().chatObjectState;
+	if (data.type === chatObjectState.type) {
+		store.dispatch(concatDialogueDetail([data]));
+	}
 })
 socket.on('add-listen', (data) => { // 添加好友
-	alert('添加好友', data.nickname + '请求添加好友', [
-		{ 
-			text: '拒绝',
-		},
-		{
-			text: '接受',
-			onPress: () => {
-				new Promise((resolve) => {
-					let acceptTelephone = getCookie('telephone');
-					let requestTelephone = data.telephone;
-					Toast.success('添加成功', 1);
-					socket.emit('accept', {
-						acceptTelephone,
-						requestTelephone
-					})
-					setTimeout(resolve, 1000);
-				})				
+	if (friendId !== data.telephone) {
+		friendId = data.telephone;
+		alert('添加好友', data.nickname + '请求添加好友', [
+			{ 
+				text: '拒绝',
+			},
+			{
+				text: '接受',
+				onPress: () => {
+					new Promise((resolve) => {
+						let acceptTelephone = getCookie('telephone');
+						let requestTelephone = data.telephone;
+						Toast.success('添加成功', 1);
+						socket.emit('accept', {
+							acceptTelephone,
+							requestTelephone,
+							friendRoomId: data.friendRoomId
+						})
+						setTimeout(resolve, 1000);
+					})				
+				}
 			}
-		}
-	])
+		])
+	}
 })
 socket.on('groupDialogue-create-success', (data) => {
 	if (data.lordId === telephone) {
@@ -49,6 +58,14 @@ socket.on('groupDialogue-create-success', (data) => {
 		store.dispatch(setFriendSelectFlag(false));
 	}
 	socket.emit('groupDialogue-join', data) // 创建时，单个join
+})
+
+socket.on('add-send', (data) => {
+	Toast.info(data.masg, 1); // 当点击添加好友后
+})
+
+socket.on('add-send', (data) => {
+	Toast.info(data.msg, 1); // 当点击添加好友后
 })
 
 axios.post('/group/list', {}, {}, false)
