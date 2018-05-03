@@ -78,6 +78,7 @@ function clone (data, assignObj) {
 function endHandler (ctx, next) {
 	ctx.status = 200;
 	ctx.type = 'text/plain; charset=utf-8';
+	ctx.set('Access-Control-Allow-Origin', '*');
 	ctx.state.data = ctx.state.data || clone(successSchema);
 	ctx.body = JSON.stringify(ctx.state.data)
 }

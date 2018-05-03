@@ -7,10 +7,8 @@ let GroupDialogues = require('./schema/groupDialogue.js');
 const FRIEND_ROOM_ID = 'friendRoomId';
 const GROUP_ID = 'groupId';
 
-const ss = require('socket.io-stream');
 const fs = require('fs');
 const path = require('path');
-const Readable = require('stream').Readable;
 
 function getRandomId (max) {
 	let num = '' + Math.floor(Math.random()*Math.pow(10, max));

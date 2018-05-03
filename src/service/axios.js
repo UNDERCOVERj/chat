@@ -1,12 +1,16 @@
 import axios from 'axios'
 import {Toast} from 'antd-mobile'
-
+const instance = axios.create({
+	baseURL: 'http://localhost:3000',
+	timeout: 60000,
+	withCredentials: true
+});
 
 module.exports = {
 	post (path, params = {}, config = {}, isToast = true) {
 		return new Promise((resolve, reject) => {
 			isToast && Toast.loading('请稍等...', 0);
-			axios.post(path, params, config)
+			instance.post(path, params, config)
 				.then((res) => {
 					let data = res.data;
 					Toast.hide()

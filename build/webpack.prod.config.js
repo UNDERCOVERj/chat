@@ -4,18 +4,27 @@ const CleanWebpackPlugin = require('clean-webpack-plugin');
 const ExtractTextPlugin = require("extract-text-webpack-plugin");
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin')
 const { moduleConfig, resolveConfig, pluginConfig } = require('./webpack.base.config.js')
+const CopyWebpackPlugin = require('copy-webpack-plugin')
 
 module.exports = {
 	entry: {
 		index: './src/index.js',
 		login: './src/login.js',
-		vendor: ['react', 'react-dom']
+		vendor: ['react', 'react-dom', 'axios', "antd-mobile", "fecha", "formidable", "mongoose", "react-redux", "react-router", "react-router-dom", "redux", "socket.io", "rc-form"]
 	},
 	output: {
 		filename: 'js/[name].[chunkhash].js',
 		chunkFilename: 'js/[name].[chunkhash].js',
 		path: path.resolve(__dirname, '../dist')
 	},
+	target: 'web',
+	node: {
+    	fs: "empty",
+    	dns: "empty",
+    	tls: "empty",
+    	module: "empty",
+    	net: "empty"
+    },	
 	resolve: resolveConfig,
 	module: moduleConfig,
 	plugins: [
@@ -37,7 +46,8 @@ module.exports = {
 			}             
         }),
         new webpack.optimize.CommonsChunkPlugin({
-	        name: 'manifest'
+	        name: 'manifest',
+	        // chunks: ['vendor']
 	    }),
 		new OptimizeCSSPlugin({
 			cssProcessorOptions: { 
@@ -46,6 +56,16 @@ module.exports = {
 					inline: false 
 				} 
 			}
-		})	      
+		}),
+		new CopyWebpackPlugin([
+			{
+				from: path.resolve(__dirname, '../src/static/avator'),
+				to: 'static/avator'
+			},
+			{
+				from: path.resolve(__dirname, '../src/static/dialogueImage'),
+				to: 'static/dialogueImage'
+			}			
+		])
 	].concat(pluginConfig)
 }

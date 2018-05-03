@@ -2,7 +2,6 @@ import React from 'react'
 import store from '../../store/index.js'
 import { connect } from 'react-redux'
 import { setPage, setTopBar } from '../../store/action.js'
-import {Form} from 'antd'
 import {Modal, Toast, List, Button, Radio, Picker} from 'antd-mobile'
 import axios from '../../service/axios.js'
 import {DataRow} from '../common.js'
@@ -13,7 +12,6 @@ const region = require('../../utils/region.json');
 const prompt = Modal.prompt;
 const alert = Modal.alert;
 const operation = Modal.operation;
-const FormItem = Form.Item;
 const RadioItem = Radio.RadioItem;
 
 class Person extends React.Component {

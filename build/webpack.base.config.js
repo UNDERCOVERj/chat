@@ -2,14 +2,14 @@ const path = require('path');
 const webpack = require('webpack');
 const ExtractTextPlugin = require("extract-text-webpack-plugin");
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const ParallelUglifyPlugin = require('webpack-parallel-uglify-plugin');
-
+// const ParallelUglifyPlugin = require('webpack-parallel-uglify-plugin');
+const UglifyJSPlugin = require('uglifyjs-webpack-plugin');
 
 const moduleConfig = {
 	rules: [
 		{ 
-			test: /\.js$/, 
-			use: 'babel-loader', 
+			test: /\.js$/,
+			use: "babel-loader",
 			exclude: /node_modules/,
 			include: path.join(__dirname, '../src'),
 		},
@@ -50,7 +50,7 @@ const pluginConfig = [
 		template: path.resolve(__dirname, '../src/index.html'),
 		filename: 'index.html',
 		inject: true,
-		chunks: ['index', 'vendor'],
+		chunks: ['index', 'vendor', 'manifest'],
 		hash: true,
 		minify: {
 			removeComments: true,
@@ -62,7 +62,7 @@ const pluginConfig = [
 		template: path.resolve(__dirname, '../src/login.html'),
 		filename: 'login.html',
 		inject: true,
-		chunks: ['login', 'vendor'],
+		chunks: ['login', 'vendor', 'manifest'],
 		hash: true,
 		minify: {
 			removeComments: true,
@@ -70,17 +70,7 @@ const pluginConfig = [
 			removeAttributeQuotes: true
 		}
 	}),
-	new ParallelUglifyPlugin({
-		cacheDir: '.cache/',
-		uglifyJS:{
-			output: {
-				comments: false
-			},
-			compress: {
-				warnings: false
-			}
-		}
-	}),
+	new UglifyJSPlugin(),
 	new ExtractTextPlugin({
 		filename: 'css/[name].[contenthash].css',
 		allChunks: false,
