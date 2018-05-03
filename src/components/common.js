@@ -181,6 +181,11 @@ class DetailModal extends React.Component {
 		this.props.dispatch(setChatObject(data));
 		this.props.history.push('/detail');
 	}
+	call = (telephone) => { // 打电话
+		let callNode = this.refs.callNode;
+		callNode.href = 'tel:' + telephone; 
+		callNode.click();
+	}
 	render () {
 		const data = this.props.data || {};
 		data.regionStr = getCity(data.region);
@@ -201,8 +206,10 @@ class DetailModal extends React.Component {
 						</DataRow>
 						<DataRow 
 							name="手机号 :" 
-							value={data.telephone}>
+							value={data.telephone}
+							onClick={this.call}>
 						</DataRow>
+						<a href="#" style={{"display": "none"}} ref="callNode"></a>
 						<DataRow 
 							name="地区 :" 
 							value={data.regionStr}>

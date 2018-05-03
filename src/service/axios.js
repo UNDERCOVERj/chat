@@ -15,6 +15,10 @@ module.exports = {
 					} else if (data.bstatus === 1) {
 						Toast.fail(data.msg, 1)
 						reject(data.msg)
+					} else if (data.bstatus === 2) {
+						Toast.fail(data.msg, 1, () => {
+							window.location.href = "/login.html#/log" // 跳转到登录页
+						})
 					}
 				})
 				.catch((err) => {

@@ -38,7 +38,7 @@ class Person extends React.Component {
 	init = (showSuccess) => {
 		this.props.dispatch(setTopBar(false, false, false))
 		this.props.dispatch(setPage('/app/person', '个人中心')) // text为title
-		axios.post('/person#hash')
+		axios.post('/person')
 			.then((data) => {
 				if (showSuccess) {
 					Toast.success('更新成功', 1)
@@ -56,9 +56,6 @@ class Person extends React.Component {
 						regionStr: city
 					})
 				})
-			})
-			.catch(() => {
-				window.location.href = "/login.html#/log" // 跳转到登录页
 			})
 	}
 	componentWillMount () { // 进入每个路由前，改变active路由
@@ -145,23 +142,24 @@ class Person extends React.Component {
 	uploadImg = (e) => {
 		let input = e.target;
 		let file = input.files[0];
-		if (file.size  > 512000) {
-			Toast.fail('图片应小于500k', 1);
-		} else {
-			let reader = new FileReader();
-			reader.onload = () => {
-				let iconUrl = reader.result;
-				axios.post('/person/update', {
-					iconUrl
-				})
+		let reader = new FileReader();
+		reader.onload = () => {
+			let iconUrl = reader.result;
+			let form = new FormData();
+			form.append('avator', file);
+			axios.post('/avator/upload', form, {headers: {"Content-Type": "multipart/form-data"}})
 				.then(() => {
-					this.init(true);
+					Toast.success('修改成功', 1, () => {
+						this.setState((prevState) => {
+							let state = prevState;
+							state.data.iconUrl = iconUrl;
+							return state
+						})
+					})
 				})
-			}
-			reader.readAsDataURL(file)
 		}
+		reader.readAsDataURL(file)
 		this.state.modal.close();
-		
 	}
 	clickIcon = () => {
 		let modal = operation([

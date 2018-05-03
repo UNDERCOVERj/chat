@@ -46,6 +46,12 @@ const errorSchema = {
 	data: {}
 }
 
+const redirectSchema = {
+	bstatus: 2, // session_id过期或者没用
+	msg: '',
+	data: {}
+}
+
 function deepClone (data) { // 针对successSchema的深拷贝
 	if (!data || typeof data === 'function' || typeof data !== 'object') {
 		return data
@@ -102,26 +108,69 @@ async function getFriendInfo (ctx, memberIds) { // 从memberIds中找出不是�
 	return friendInfo || {}
 }
 
+// 处理session
+
+const sessions = {};
+const EXPIRES = 20*60*1000;
+function generate (telephone = '') {
+	let session = {};
+	session.id = new Date().getTime() + Math.random();
+	session.telephone = telephone;
+	session.csrfToken = crypto.randomBytes(Math.ceil(24*3/4)).toString('base64').slice(0, 24);
+	session.cookie = {
+		expire: new Date().getTime() + EXPIRES
+	}
+	sessions[session.id] = session;
+	return session;
+}
+
 module.exports = (app, router) => {
-	router.use(async (ctx, next) => {
-		const url = ctx.url;
-		if (url !== '/register' && url !== '/log/in') {
-			const telephone = ctx.cookies.get('telephone');
-			const SESSION_ID = ctx.cookies.get('SESSION_ID');
-			const flag = telephone && SESSION_ID === createHash(telephone);
-			if (flag) {
-				await next()
-			} else {
-				ctx.state.data = clone(errorSchema, {msg: 'SESSION_ID不一致'});
-				endHandler(ctx, next)
-			}
-		} else {
-			await next();
-		}
+	// router.use(async (ctx, next) => {
+	// 	const url = ctx.url;
+	// 	if (url !== '/register' && url !== '/log/in' && url !== '/log/out') {
+	// 		const telephone = ctx.cookies.get('telephone');
+	// 		const SESSION_ID = ctx.cookies.get('SESSION_ID');
+	// 		const csrfToken = ctx.cookies.get('csrfToken');
+	// 		let data = clone(redirectSchema, {msg: 'SESSION_ID有误'});
+	// 		let flag = false;
+	// 		// const flag = telephone && SESSION_ID === createHash(telephone);
+	// 		let session = sessions[SESSION_ID];
+	// 		if (session) {
+	// 			if (session.cookie.expire > new Date().getTime()) {
+	// 				session.cookie.expire = new Date().getTime() + EXPIRES;
+	// 				flag = true;
+	// 			} else {
+	// 				delete sessions[SESSION_ID];
+	// 				data.msg = 'SESSION_ID过期';
+	// 				flag = false;
+	// 			}
+	// 			if (session.telephone !== telephone) {
+	// 				data.msg = 'session中的telephone不一致';
+	// 				flag = false;
+	// 			}
+	// 			if (session.csrfToken !== csrfToken) {
+	// 				data.msg = '禁止访问';
+	// 				flag = false
+	// 			}
+	// 		} else {
+	// 			data.msg = 'SESSION_ID缺失'
+	// 			flag = false
+	// 		}
+
+	// 		if (flag) {
+	// 			await next()
+	// 		} else {
+	// 			ctx.state.data = data
+	// 			endHandler(ctx, next)
+	// 		}
+	// 	} else {
+	// 		await next();
+	// 	}
 		
-	})
+	// })
 	router.post('/register', async (ctx, next) => { // 注册
 		const content = ctx.request.body;
+		content.password = createHash(content.password); // 存储密文
 		let data = null;
 		let person = await Users.findOne({
 			telephone: content.telephone
@@ -134,14 +183,20 @@ module.exports = (app, router) => {
 			let result = await item.save() // 创建一个用户
 			data = clone(successSchema);
 			data.msg = '注册成功';
-			ctx.cookies.set('SESSION_ID', createHash(content.telephone)); // 设置cookie
+			// ctx.cookies.set('SESSION_ID', createHash(content.telephone)); // 设置cookie
 			ctx.cookies.set('telephone', content.telephone, {httpOnly: false}); // 设置cookie方便登录拦截
+
+			let session = generate(content.telephone);
+			ctx.cookies.set('SESSION_ID', session.id);
+			ctx.cookies.set('csrfToken', session.csrfToken);
+
 		}
 		ctx.state.data = data;
 		await next();
 	});
 	router.post('/log/in', async (ctx, next) => {
 		const content = ctx.request.body;
+		content.password = createHash(content.password);
 		let data = null;
 		let person = await Users.findOne({
 			telephone: content.telephone
@@ -149,13 +204,18 @@ module.exports = (app, router) => {
 		if (person) {
 			let details = await Users.findOne({
 				telephone: content.telephone,
-				password:content.password
+				password: content.password
 			})
 			if (details) {
 				data = clone(successSchema);
 				data.msg = '登录成功';
-				ctx.cookies.set('SESSION_ID', createHash(content.telephone)); // 设置登录成功后的session_id
+				// ctx.cookies.set('SESSION_ID', createHash(content.telephone)); // 设置登录成功后的session_id
 				ctx.cookies.set('telephone', content.telephone, {httpOnly: false}); // 设置登录成功后的账号
+				// 新建session，如果以前的session还有，时间过期了，会被删掉	
+				let session = generate(content.telephone);
+				ctx.cookies.set('SESSION_ID', session.id);
+				ctx.cookies.set('csrfToken', session.csrfToken);
+			
 			} else {
 				data = clone(errorSchema);
 				data.msg = '密码错误';
@@ -228,6 +288,32 @@ module.exports = (app, router) => {
 		}
 		ctx.state.data = data;
 		await next();
+	})
+	router.post('/avator/upload', async (ctx, next) => {
+		let data = null;
+		let form = new formidable.IncomingForm();
+	    await new Promise((resolve, reject) => {
+	    	form.parse(ctx.req, async (err, fields, files) => {
+	    		let file = files.avator;
+	    		let {
+	    			name,
+	    			type
+	    		} = file;
+	    		let filename = Math.floor(Math.random()*1000) + '-' + name;
+
+	    		if (file) {
+					fs.renameSync(files.avator.path, path.resolve(__dirname, "../static/avator") + '/' + filename);
+					let person = await getPerson(ctx, next);
+					if (person) {
+						person.iconUrl = '/avator/' + filename;
+						await person.save();
+					}
+	    		}
+				
+				resolve();
+	    	})
+	    }).then(() => {})
+	    await next();
 	})
 	router.post('/friend/list', async (ctx, next) => {
 		let data = clone(successSchema);
@@ -323,7 +409,7 @@ module.exports = (app, router) => {
 		groupDialogues = groupDialogues || [];
 
 		list = friendDialogues.concat(groupDialogues);
-		
+
 		for (let i = 0; i < list.length; i++) {
 			let item = list[i];
 			let details = item.details;

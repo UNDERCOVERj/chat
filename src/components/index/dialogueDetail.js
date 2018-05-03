@@ -7,8 +7,9 @@ import axios from '@/service/axios.js'
 import {setDialogueDetail, setFriendSelectFlag} from '@/store/action.js'
 import {FriendSelect, FRIEND_ROOM_ID, GROUP_ID} from '../common.js'
 const Item = Popover.Item;
-let io = require('socket.io-client')
-let socket = io('http://localhost:3000')
+import ImgDetail from './imgDetail.js'
+let io = require('socket.io-client');
+let socket = io('http://localhost:3000');
 
 class DialogueItem extends React.Component {
 	constructor (props) {
@@ -29,6 +30,9 @@ class DialogueItem extends React.Component {
 					? 'dialogue-item__message dialogue-item__message-right'
 					: 'dialogue-item__message dialogue-item__message-left'
 	}
+	observeImg = (iconUrl) => {
+		this.props.onObserveImg(iconUrl);
+	}
 	render () {
 		const data = this.props.data;
 		let date = new Date(data.date);
@@ -45,14 +49,14 @@ class DialogueItem extends React.Component {
 					<div className="dialogue-item__icon">
 						{
 							data.iconUrl 
-								? <img src={data.iconUrl} alt="图片加载失败" className="icon-big-img"/>
+								? <img src={data.iconUrl} alt="" className="icon-big-img"/>
 								: null	
 						}
 					</div>
 					<div className='dialogue-item__text'>
 						<div className="dialogue-item__text-name">{data.nickname}</div>
 						<div className="dialogue-item__text-inner">
-							{data.message ? data.message : <img src={data.imgUrl} alt="图片加载失败" className="dialogue-item__img"/>}
+							{data.message ? data.message : <img src={data.imgUrl} alt="" className="dialogue-item__img" onClick={() => this.observeImg(data.imgUrl)}/>}
 						</div>
 					</div>
 				</div>
@@ -68,7 +72,8 @@ class DialogueDetail extends React.Component {
 		this.state = {
 			value: '',
 			visible: false,
-			memberIds: new Set() // friend列表
+			memberIds: new Set(), // friend列表
+			detailImgUrl: '' // 图片详情的href
 		}
 	}
 	componentWillMount () {
@@ -135,28 +140,28 @@ class DialogueDetail extends React.Component {
 		const propsData = this.props.data;
 		let input = e.target;
 		let file = input.files[0];
-		if (file.size  > 512000) {
-			Toast.fail('图片应小于500k', 1);
-		} else {
-			let reader = new FileReader();
-			reader.onload = () => {
-				let imgUrl = reader.result;
-				let params = {
-					message: "",
-					imgUrl,
-					requestUserTelephone: getCookie('telephone')
-				}
+		if (file.type.indexOf('image/') !== 0) return;
 
-				if (propsData.type === FRIEND_ROOM_ID) {
-					params.friendRoomId = propsData.friendRoomId;
-					socket.emit('emit-user-sended', params);
-				} else if (propsData.type === GROUP_ID) {
-					params.groupId = propsData.groupId;
-					socket.emit('emit-group-sended', params);			
-				}
+		let reader = new FileReader();
+		reader.onload = () => {
+			let imgStream = reader.result;
+			let params = {
+				message: "",
+				imgUrl: '/dialogueImage/' + Math.floor(Math.random()*1000) + '-' + file.name,
+				imgStream,
+				requestUserTelephone: getCookie('telephone')
 			}
-			reader.readAsDataURL(file)
+
+			if (propsData.type === FRIEND_ROOM_ID) {
+				params.friendRoomId = propsData.friendRoomId;
+				socket.emit('emit-user-sended', params);
+			} else if (propsData.type === GROUP_ID) {
+				params.groupId = propsData.groupId;
+				socket.emit('emit-group-sended', params);			
+			}
 		}
+		reader.readAsArrayBuffer(file);
+		
 	}
 	showFriendSelect = () => {
 		let list = this.props.friendSelectList;
@@ -207,15 +212,28 @@ class DialogueDetail extends React.Component {
 		}
 		socket.emit('groupDialogue-add',params)
 	}
+	observeImg = (detailImgUrl) => {
+		this.setState({
+			detailImgUrl,
+			isShowImgDetail: true
+		}, this.refs.imgDetail.showImgDetail)
+	}
+	handleImgLeftIconReturn = () => {
+		this.setState({
+			isShowImgDetail: false
+		})
+	}
 	render () {
 		const data = this.props.data;
 		data.memberIds = data.memberIds || [];
 		const personNum = data.memberIds.length;
 		return (
-			<div className="dialogue-detail">
+			<div className="dialogue-detail" style={this.state.isShowImgDetail ? {"overflow": "hidden", "height": "100vh"} : {}}>
+				<ImgDetail iconUrl={this.state.detailImgUrl} ref="imgDetail" title="图片详情" onHandleLeftIconReturn={this.handleImgLeftIconReturn}></ImgDetail>
 				<div className="content">
 					{this.props.list.map((item, idx) => 
 						(<DialogueItem
+							onObserveImg={this.observeImg}
 							onChildScrollIntoView={this.childScrollIntoView}
 							max={this.props.list.length - 1}
 							idx={idx}

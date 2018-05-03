@@ -7,6 +7,7 @@ import Register from './components/login/register.js'
 import './static/css/login/index.css'
 import store from './store/index.js'
 import { Provider } from 'react-redux'
+require('./static/js/flexible.js')
 ReactDOM.render(
 	<HashRouter>
 		<Provider store={store}>

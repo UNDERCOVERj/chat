@@ -20,6 +20,7 @@ class ImgDetail extends React.Component {
 	}
 	handleLeftIconReturn = () => {
 		this.closeImgDetail();
+		this.props.onHandleLeftIconReturn && this.props.onHandleLeftIconReturn();
 	}
 	render () {
 		return (
@@ -31,7 +32,7 @@ class ImgDetail extends React.Component {
 								: null	
 						}				
 				</div>
-				<HeaderRow isShowLeftIcon={true} title="头像" handleLeftIconReturn={this.handleLeftIconReturn}></HeaderRow>
+				<HeaderRow isShowLeftIcon={true} title={this.props.title || "头像"} handleLeftIconReturn={this.handleLeftIconReturn}></HeaderRow>
 			</div>
 		)
 	}

@@ -13,6 +13,8 @@ import {concatDialogueDetail, setFriendSelectFlag} from '@/store/action.js'
 import axios from '@/service/axios.js'
 const alert = Modal.alert;
 
+require('./static/js/flexible.js')
+
 let socket = store.getState().generalSocket.socket;
 let telephone = getCookie('telephone');
 

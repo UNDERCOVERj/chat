@@ -7,6 +7,11 @@ let GroupDialogues = require('./schema/groupDialogue.js');
 const FRIEND_ROOM_ID = 'friendRoomId';
 const GROUP_ID = 'groupId';
 
+const ss = require('socket.io-stream');
+const fs = require('fs');
+const path = require('path');
+const Readable = require('stream').Readable;
+
 function getRandomId (max) {
 	let num = '' + Math.floor(Math.random()*Math.pow(10, max));
 	let len = num.length;
@@ -123,9 +128,14 @@ module.exports = (io) => {
 				requestUserTelephone,
 				message,
 				imgUrl,
+				imgStream,
 				friendRoomId
 			} = data;
-
+			if (imgUrl && imgStream) { // 存储图片
+				const filePath = path.resolve(__dirname, '../static');
+				const writer = fs.createWriteStream(filePath + imgUrl);
+				writer.write(imgStream);
+			}
 			let requestPerson = await Users.findOne({
 				telephone: requestUserTelephone
 			}).exec();
@@ -223,9 +233,14 @@ module.exports = (io) => {
 			let {
 				requestUserTelephone,
 				message,
-				imgUrl
+				imgUrl,
+				imgStream
 			} = data;
-
+			if (imgUrl && imgStream) { // 存储图片
+				const filePath = path.resolve(__dirname, '../static');
+				const writer = fs.createWriteStream(filePath + imgUrl);
+				writer.write(imgStream);
+			}
 			let requestPerson = await Users.findOne({
 				telephone: requestUserTelephone
 			}).exec();
@@ -252,6 +267,11 @@ module.exports = (io) => {
 			socket.to('group-' + data.groupId).emit('message-listen', basicParams)
 
 		})
+
+		socket.on('profile-image', (stream, data) => {
+			
+		})
+
 		socket.on('disconnect', () => {
 			// console.log(socket.id)
 		})
